@@ -4,7 +4,7 @@ Primera Fleet Check is a small mobile app that lets a driver record a quick dail
 
 I built this app to learn how to make a mobile app for the first time. I already knew React for the web, so my goal was to learn the parts that are specific to mobile, such as React Native components, moving between screens with navigation, and saving data on the device with AsyncStorage.
 
-[Software Demo Video](http://youtube.link.goes.here)
+Software Demo Video: https://www.loom.com/share/ad23ec5dd8cb4db994a6d9eaf322dd3e
 
 # Development Environment
 
