@@ -68,6 +68,10 @@ export default function ListScreen({ navigation }: Props) {
     navigation.setOptions({
       headerSearchBarOptions: {
         placeholder: 'Search vehicle or notes',
+        // Keep the search bar under the title. On iOS 26 it would otherwise move
+        // to the bottom of the screen and cover the "+ New Check-In" button.
+        placement: 'stacked',
+        hideWhenScrolling: false,
         // Stores what the driver types so the list can be filtered by it.
         onChangeText: (event) => setSearch(event.nativeEvent.text),
       },
