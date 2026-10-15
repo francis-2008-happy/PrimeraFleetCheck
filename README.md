@@ -4,7 +4,7 @@ Primera Fleet Check is a mobile app that lets a driver record a quick daily vehi
 
 How to use it: the first screen lists every check-in stored in the cloud, with a search bar and a filter that shows only vehicles that need attention. Tap **+ New Check-In** to choose a vehicle, enter the odometer and fuel level, mark each item on an inspection checklist (tyres, lights, brakes, fluids, wipers, mirrors, horn) as OK or Defect, and add notes. Saving inserts the check-in into the cloud database. Tap any check-in to see its details, where you can edit it, delete it, or mark its defects as resolved. The list updates by itself in real time whenever the data changes, even if the change was made on another phone or directly in the database.
 
-[Software Demo Video](https://www.loom.com/share/ad23ec5dd8cb4db994a6d9eaf322dd3e)
+Software Demo Video: https://www.loom.com/share/0c79167b11e54e058e7e8d0cf7c45ba8 
 
 # Cloud Database
 
