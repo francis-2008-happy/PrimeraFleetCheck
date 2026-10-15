@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -62,21 +63,6 @@ export default function ListScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [seeding, setSeeding] = useState(false);
-
-  // Adds the native search bar to this screen's header.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerSearchBarOptions: {
-        placeholder: 'Search vehicle or notes',
-        // Keep the search bar under the title. On iOS 26 it would otherwise move
-        // to the bottom of the screen and cover the "+ New Check-In" button.
-        placement: 'stacked',
-        hideWhenScrolling: false,
-        // Stores what the driver types so the list can be filtered by it.
-        onChangeText: (event) => setSearch(event.nativeEvent.text),
-      },
-    });
-  }, [navigation]);
 
   // Starts a real-time listener on the Supabase "checkins" table when the
   // screen opens. Whenever any check-in changes in the cloud (from this phone
@@ -170,10 +156,29 @@ export default function ListScreen({ navigation }: Props) {
         renderItem={renderRow}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={
-          <View style={styles.filterRow}>
-            {renderFilterTab('all', `All (${checkIns.length})`)}
-            {renderFilterTab('attention', `Needs attention (${attentionCount})`)}
+          <View>
+            {/* Our own search box. Typing filters the list by vehicle or notes. */}
+            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="search" size={18} color={colors.subtext} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search vehicle or notes"
+                placeholderTextColor={colors.subtext}
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+                accessibilityLabel="Search check-ins"
+              />
+            </View>
+            <View style={styles.filterRow}>
+              {renderFilterTab('all', `All (${checkIns.length})`)}
+              {renderFilterTab('attention', `Needs attention (${attentionCount})`)}
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -215,6 +220,20 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 44,
+    fontSize: 16,
   },
   filterRow: {
     flexDirection: 'row',
