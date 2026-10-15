@@ -1,12 +1,11 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { CheckIn, CHECKLIST_ITEMS, needsAttention } from '../starter-data';
 import { RootStackParamList } from '../navigation';
-import { deleteCheckIn, getCheckIn, upsertCheckIn } from '../storage';
+import { deleteCheckIn, subscribeToCheckIn, updateCheckIn } from '../storage';
 import { Colors, useColors } from '../theme';
 import PrimaryButton from '../components/PrimaryButton';
 import StatusBadge from '../components/StatusBadge';
@@ -48,39 +47,36 @@ export default function DetailsScreen({ navigation, route }: Props) {
     });
   }, [navigation, checkInId, colors]);
 
-  // Reloads the check-in every time this screen is shown, so changes made
-  // on the edit screen appear as soon as the driver comes back.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-
-      // Reads this check-in from storage and puts it into state.
-      async function refresh() {
-        try {
-          const found = await getCheckIn(checkInId);
-          if (active) setCheckIn(found);
-        } catch {
-          Alert.alert('Could not load', 'This check-in could not be read.');
-        } finally {
-          if (active) setLoading(false);
-        }
+  // Listens for live changes to this one check-in in Supabase. If it is edited (here or on
+  // another phone) the screen updates by itself; if it is deleted, we show that.
+  useEffect(() => {
+    const unsubscribe = subscribeToCheckIn(
+      checkInId,
+      // Called with the latest version every time this document changes.
+      (latest) => {
+        setCheckIn(latest);
+        setLoading(false);
+      },
+      // Called if the listener fails, for example with no internet.
+      (error) => {
+        setLoading(false);
+        Alert.alert('Could not load', error.message);
       }
-      refresh();
+    );
+    // Stops listening when the screen is closed.
+    return unsubscribe;
+  }, [checkInId]);
 
-      // Runs when the screen loses focus, so a slow load doesn't update a hidden screen.
-      return () => {
-        active = false;
-      };
-    }, [checkInId])
-  );
-
-  // Marks the defects on this check-in as fixed (or re-opens them) and saves it.
+  // Marks the defects on this check-in as fixed (or re-opens them) in Supabase.
+  // We don't update the screen ourselves: the listener above does it.
   async function toggleResolved() {
     if (!checkIn) return;
-    const updated = { ...checkIn, resolved: !checkIn.resolved };
-    await upsertCheckIn(updated);
-    setCheckIn(updated);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await updateCheckIn(checkIn.id, { resolved: !checkIn.resolved });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert('Could not update', (error as Error).message);
+    }
   }
 
   // Asks the driver to confirm, then deletes this check-in and goes back to the list.
@@ -92,9 +88,13 @@ export default function DetailsScreen({ navigation, route }: Props) {
         style: 'destructive',
         // Runs only if the driver taps "Delete" in the pop-up.
         onPress: async () => {
-          await deleteCheckIn(checkInId);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           navigation.goBack();
+          try {
+            await deleteCheckIn(checkInId);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } catch (error) {
+            Alert.alert('Could not delete', (error as Error).message);
+          }
         },
       },
     ]);

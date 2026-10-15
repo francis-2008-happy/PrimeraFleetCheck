@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,13 +8,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckIn, needsAttention } from '../starter-data';
 import { RootStackParamList } from '../navigation';
-import { loadCheckIns } from '../storage';
+import { addSampleCheckIns, subscribeToCheckIns } from '../storage';
 import { Colors, useColors } from '../theme';
 import PrimaryButton from '../components/PrimaryButton';
 import StatusBadge from '../components/StatusBadge';
@@ -62,6 +61,7 @@ export default function ListScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [seeding, setSeeding] = useState(false);
 
   // Adds the native search bar to this screen's header.
   useLayoutEffect(() => {
@@ -74,31 +74,37 @@ export default function ListScreen({ navigation }: Props) {
     });
   }, [navigation]);
 
-  // Every time this screen comes into view (on launch, and when coming back
-  // from another screen), reload the check-ins from the phone's storage.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-
-      // Reads the saved check-ins and puts them into state for the list.
-      async function refresh() {
-        try {
-          const saved = await loadCheckIns();
-          if (active) setCheckIns(saved);
-        } catch {
-          Alert.alert('Could not load', 'Your saved check-ins could not be read.');
-        } finally {
-          if (active) setLoading(false);
-        }
+  // Starts a real-time listener on the Supabase "checkins" table when the
+  // screen opens. Whenever any check-in changes in the cloud (from this phone
+  // or another one), Supabase notifies the app and we show the new list.
+  useEffect(() => {
+    const unsubscribe = subscribeToCheckIns(
+      // Called with the latest list every time the cloud data changes.
+      (latest) => {
+        setCheckIns(latest);
+        setLoading(false);
+      },
+      // Called if the listener fails, for example with no internet or a rules error.
+      (error) => {
+        setLoading(false);
+        Alert.alert('Could not load check-ins', error.message);
       }
-      refresh();
+    );
+    // Stops listening when the screen is closed, so we don't waste data.
+    return unsubscribe;
+  }, []);
 
-      // Runs when the screen loses focus, so a slow load doesn't update a hidden screen.
-      return () => {
-        active = false;
-      };
-    }, [])
-  );
+  // Uploads the example check-ins to the cloud, so there is something to demo.
+  async function handleAddSamples() {
+    setSeeding(true);
+    try {
+      await addSampleCheckIns();
+    } catch (error) {
+      Alert.alert('Could not add samples', (error as Error).message);
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   // The check-ins that match the search box and the selected filter.
   const query = search.trim().toLowerCase();
@@ -174,6 +180,14 @@ export default function ListScreen({ navigation }: Props) {
                 ? 'No check-ins yet. Tap the button below to log your first one.'
                 : 'No check-ins match.'}
             </Text>
+            {checkIns.length === 0 && (
+              <PrimaryButton
+                title={seeding ? 'Adding...' : 'Add sample check-ins'}
+                variant="outline"
+                onPress={handleAddSamples}
+                disabled={seeding}
+              />
+            )}
           </View>
         }
       />

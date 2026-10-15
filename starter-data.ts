@@ -1,7 +1,7 @@
 // starter-data.ts
 // A small set of vehicles and a few example check-ins to test the app with.
-// The first time the app runs, SAMPLE_CHECKINS are saved to the phone so the
-// list has something to show. After that the driver adds their own.
+// When the cloud database is empty, the list screen offers a button that
+// uploads SAMPLE_CHECKINS to Supabase so there is something to show.
 
 // The shape of one saved vehicle check-in.
 export type CheckIn = {

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { CheckIn, CHECKLIST_ITEMS, FUEL_LEVELS, VEHICLES } from '../starter-data';
 import { RootStackParamList } from '../navigation';
-import { getCheckIn, lastCheckInFor, newId, todayString, upsertCheckIn } from '../storage';
+import { addCheckIn, CheckInData, getCheckIn, lastCheckInFor, todayString, updateCheckIn } from '../storage';
 import { Colors, useColors } from '../theme';
 import PrimaryButton from '../components/PrimaryButton';
 
@@ -142,18 +142,23 @@ export default function CheckInFormScreen({ navigation, route }: Props) {
     if (!editingId) return;
     navigation.setOptions({ title: 'Edit Check-In' });
 
-    // Reads the check-in being edited from storage and copies it into the form.
+    // Reads the check-in being edited from Supabase and copies it into the form.
     async function loadExisting() {
-      const existing = await getCheckIn(editingId!);
-      if (existing) {
-        setOriginal(existing);
-        setVehicle(existing.vehicle);
-        setOdometer(String(existing.odometer));
-        setFuelLevel(existing.fuelLevel);
-        setDefects(existing.defects);
-        setNotes(existing.notes);
+      try {
+        const existing = await getCheckIn(editingId!);
+        if (existing) {
+          setOriginal(existing);
+          setVehicle(existing.vehicle);
+          setOdometer(String(existing.odometer));
+          setFuelLevel(existing.fuelLevel);
+          setDefects(existing.defects);
+          setNotes(existing.notes);
+        }
+      } catch (error) {
+        Alert.alert('Could not load', (error as Error).message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadExisting();
   }, [editingId, navigation]);
@@ -166,7 +171,7 @@ export default function CheckInFormScreen({ navigation, route }: Props) {
   }
 
   // Checks the form, and if everything is filled in correctly, saves it
-  // to the phone and returns to the previous screen.
+  // to the Supabase cloud database and returns to the previous screen.
   async function handleSave() {
     if (!vehicle) {
       Alert.alert('Missing vehicle', 'Please pick a vehicle.');
@@ -207,8 +212,7 @@ export default function CheckInFormScreen({ navigation, route }: Props) {
         }
       }
 
-      const checkIn: CheckIn = {
-        id: original?.id ?? newId(),
+      const data: CheckInData = {
         vehicle,
         odometer: odometerNumber,
         fuelLevel,
@@ -219,13 +223,18 @@ export default function CheckInFormScreen({ navigation, route }: Props) {
         notes: notes.trim(),
         date: original?.date ?? todayString(),
       };
-      await upsertCheckIn(checkIn);
+      // Editing changes the existing document (modify); otherwise add a new one (insert).
+      if (original) {
+        await updateCheckIn(original.id, data);
+      } else {
+        await addCheckIn(data);
+      }
       Haptics.notificationAsync(
         defects.length > 0 ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success
       );
       navigation.goBack();
-    } catch {
-      Alert.alert('Could not save', 'Something went wrong saving this check-in. Please try again.');
+    } catch (error) {
+      Alert.alert('Could not save', (error as Error).message);
       setSaving(false);
     }
   }
